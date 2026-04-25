@@ -40,25 +40,32 @@ type AttestResult struct {
 }
 
 func SubmitAttestation(owner, repo, author string, recipient common.Address, proof *model.SkillProof, commitsAnalyzed int, evidenceCID string) (*AttestResult, error) {
+	log.Printf("[Chain] starting attest — contract=%q rpc=%s", config.App.ContractAddress, config.App.MonadRPC)
+
 	if config.App.ContractAddress == "" {
+		log.Printf("[Chain] CONTRACT_ADDRESS is empty")
 		return nil, fmt.Errorf("CONTRACT_NOT_SET")
 	}
 	if config.App.DeployerKey == "" {
+		log.Printf("[Chain] DEPLOYER_PRIVATE_KEY is empty")
 		return nil, fmt.Errorf("TX_FAILED: DEPLOYER_PRIVATE_KEY is empty")
 	}
 
 	abiJSON, err := os.ReadFile("abi/Attesta.json")
 	if err != nil {
+		log.Printf("[Chain] read ABI failed: %v", err)
 		return nil, fmt.Errorf("chain: read abi/Attesta.json: %w", err)
 	}
 	parsedABI, err := abi.JSON(strings.NewReader(string(abiJSON)))
 	if err != nil {
+		log.Printf("[Chain] parse ABI failed: %v", err)
 		return nil, fmt.Errorf("chain: parse ABI: %w", err)
 	}
 
 	rpc := config.App.MonadRPC
 	client, err := ethclient.Dial(rpc)
 	if err != nil {
+		log.Printf("[Chain] dial RPC failed: %v", err)
 		return nil, fmt.Errorf("TX_FAILED: dial rpc: %w", err)
 	}
 	defer client.Close()
@@ -66,11 +73,13 @@ func SubmitAttestation(owner, repo, author string, recipient common.Address, pro
 	privHex := strings.TrimPrefix(config.App.DeployerKey, "0x")
 	priv, err := crypto.HexToECDSA(privHex)
 	if err != nil {
+		log.Printf("[Chain] invalid deployer key: %v", err)
 		return nil, fmt.Errorf("TX_FAILED: invalid deployer key: %w", err)
 	}
 
 	auth, err := bind.NewKeyedTransactorWithChainID(priv, big.NewInt(monadChainID))
 	if err != nil {
+		log.Printf("[Chain] create transactor failed: %v", err)
 		return nil, fmt.Errorf("TX_FAILED: create transactor: %w", err)
 	}
 
