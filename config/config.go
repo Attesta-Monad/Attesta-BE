@@ -21,6 +21,9 @@ type Config struct {
 	OpenAIBaseURL string
 	OpenAIAPIKey  string
 	OpenAIModel   string
+
+	// IPFS provider: Pinata (preferred, pure HTTP) or legacy Web3.Storage
+	PinataJWT string
 }
 
 var App Config
@@ -43,6 +46,8 @@ func Load() {
 		OpenAIBaseURL: getEnv("OPENAI_BASE_URL", ""),
 		OpenAIAPIKey:  getEnv("OPENAI_API_KEY", ""),
 		OpenAIModel:   getEnv("OPENAI_MODEL", ""),
+
+		PinataJWT: getEnv("PINATA_JWT", ""),
 	}
 }
 

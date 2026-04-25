@@ -2,16 +2,11 @@ package service
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"os/exec"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/GPadaka19/attesta-be/config"
@@ -20,12 +15,11 @@ import (
 
 const (
 	w3sUploadURL = "https://api.web3.storage/upload"
+	pinataURL    = "https://api.pinata.cloud/pinning/pinJSONToIPFS"
 	ipfsTimeout  = 30 * time.Second
 )
 
 var ipfsClient = &http.Client{Timeout: ipfsTimeout}
-
-var cidRegex = regexp.MustCompile(`\b(bafy[0-9a-z]{20,}|Qm[1-9A-HJ-NP-Za-km-z]{44})\b`)
 
 type evidenceMeta struct {
 	Owner           string `json:"owner"`
@@ -42,11 +36,8 @@ type evidencePackage struct {
 	Commits     []model.AICommit  `json:"commits"`
 }
 
-type w3sUploadResponse struct {
-	CID string `json:"cid"`
-}
-
-// UploadEvidence uploads the evidence package to Web3.Storage and returns CID.
+// UploadEvidence uploads the evidence package to IPFS and returns the CID.
+// Priority: Pinata (PINATA_JWT) → Legacy Web3.Storage (W3S_TOKEN)
 func UploadEvidence(owner, repo, author string, commitsFetched int, payload *model.GitHubPayload, proof *model.SkillProof) (string, error) {
 	pkg := evidencePackage{
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
@@ -66,34 +57,41 @@ func UploadEvidence(owner, repo, author string, commitsFetched int, payload *mod
 		return "", fmt.Errorf("ipfs: marshal evidence: %w", err)
 	}
 
-	// Prefer legacy Web3.Storage API token if provided.
+	log.Printf("[IPFS] uploading evidence bytes=%d", len(body))
+
+	if config.App.PinataJWT != "" {
+		return uploadViaPinata(body)
+	}
 	if config.App.W3SToken != "" {
-		cid, err := uploadViaLegacyW3S(body)
-		// If legacy endpoint is flaky/maintenance, fallback to CLI (Storacha/w3up).
-		if err == nil {
-			return cid, nil
-		}
-		if strings.Contains(err.Error(), "IPFS_LEGACY_MAINTENANCE") {
-			log.Printf("[IPFS] legacy maintenance detected, falling back to w3 cli")
-			return uploadViaW3CLI(body)
-		}
-		return "", err
+		return uploadViaW3S(body)
 	}
 
-	// Fallback: Storacha/w3up setup via CLI (`w3 up <file>`).
-	// This assumes `w3 login` + `w3 space use <space>` have been done on the machine.
-	return uploadViaW3CLI(body)
+	return "", fmt.Errorf("IPFS_UPLOAD_FAILED: set PINATA_JWT or W3S_TOKEN in environment")
 }
 
-func uploadViaLegacyW3S(body []byte) (string, error) {
-	req, err := http.NewRequest("POST", w3sUploadURL, bytes.NewReader(body))
-	if err != nil {
-		return "", fmt.Errorf("ipfs: create request: %w", err)
-	}
-	req.Header.Set("Authorization", "Bearer "+config.App.W3SToken)
-	req.Header.Set("Content-Type", "application/json")
+// --- Pinata ---
 
-	log.Printf("[IPFS] uploading evidence bytes=%d", len(body))
+type pinataRequest struct {
+	PinataContent json.RawMessage `json:"pinataContent"`
+}
+
+type pinataResponse struct {
+	IpfsHash string `json:"IpfsHash"`
+}
+
+func uploadViaPinata(body []byte) (string, error) {
+	reqBody, err := json.Marshal(pinataRequest{PinataContent: json.RawMessage(body)})
+	if err != nil {
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+
+	req, err := http.NewRequest("POST", pinataURL, bytes.NewReader(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+config.App.PinataJWT)
+
 	resp, err := ipfsClient.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
@@ -104,62 +102,56 @@ func uploadViaLegacyW3S(body []byte) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
 	}
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		// Observed: 503 ERROR_MAINTENANCE even when status page is operational.
-		if resp.StatusCode == 503 && bytes.Contains(raw, []byte("ERROR_MAINTENANCE")) {
-			log.Printf("[IPFS] legacy maintenance status=503 body=%s", string(raw))
-			return "", fmt.Errorf("IPFS_LEGACY_MAINTENANCE")
-		}
-		log.Printf("[IPFS] upload failed status=%d body=%s", resp.StatusCode, string(raw))
+		log.Printf("[IPFS] pinata upload failed status=%d body=%s", resp.StatusCode, string(raw))
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+
+	var out pinataResponse
+	if err := json.Unmarshal(raw, &out); err != nil || out.IpfsHash == "" {
+		log.Printf("[IPFS] pinata unexpected response: %s", string(raw))
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+
+	log.Printf("[IPFS] upload success (pinata) cid=%s", out.IpfsHash)
+	return out.IpfsHash, nil
+}
+
+// --- Legacy Web3.Storage ---
+
+type w3sUploadResponse struct {
+	CID string `json:"cid"`
+}
+
+func uploadViaW3S(body []byte) (string, error) {
+	req, err := http.NewRequest("POST", w3sUploadURL, bytes.NewReader(body))
+	if err != nil {
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+	req.Header.Set("Authorization", "Bearer "+config.App.W3SToken)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := ipfsClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+	defer resp.Body.Close()
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		log.Printf("[IPFS] w3s upload failed status=%d body=%s", resp.StatusCode, string(raw))
 		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
 	}
 
 	var out w3sUploadResponse
 	if err := json.Unmarshal(raw, &out); err != nil || out.CID == "" {
-		log.Printf("[IPFS] unexpected response: %s", string(raw))
+		log.Printf("[IPFS] w3s unexpected response: %s", string(raw))
 		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
 	}
 
-	log.Printf("[IPFS] upload success cid=%s", out.CID)
+	log.Printf("[IPFS] upload success (w3s) cid=%s", out.CID)
 	return out.CID, nil
-}
-
-func uploadViaW3CLI(body []byte) (string, error) {
-	f, err := os.CreateTemp("", "attesta-evidence-*.json")
-	if err != nil {
-		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
-	}
-	tmpPath := f.Name()
-	defer os.Remove(tmpPath)
-
-	if _, err := f.Write(body); err != nil {
-		f.Close()
-		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
-	}
-	if err := f.Close(); err != nil {
-		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), ipfsTimeout)
-	defer cancel()
-
-	// `w3 up` prints a gateway URL containing the CID.
-	cmd := exec.CommandContext(ctx, "w3", "up", tmpPath)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		log.Printf("[IPFS] w3 up failed: %v output=%s", err, string(out))
-		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
-	}
-
-	s := string(out)
-	m := cidRegex.FindStringSubmatch(s)
-	if len(m) == 0 {
-		log.Printf("[IPFS] w3 up output missing cid: %s", s)
-		return "", fmt.Errorf("IPFS_UPLOAD_FAILED")
-	}
-
-	cid := m[1]
-	log.Printf("[IPFS] upload success (w3) cid=%s", cid)
-	return cid, nil
 }
