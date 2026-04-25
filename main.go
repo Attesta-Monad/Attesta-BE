@@ -25,7 +25,7 @@ func main() {
 
 	// CORS — izinkan frontend Vercel mengakses API
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "https://attesta-fe.vercel.app",
+		AllowOrigins: "https://attesta-fe.vercel.app, http://localhost:3000",
 		AllowMethods: "GET,POST,PUT,DELETE,OPTIONS",
 		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
 	}))
