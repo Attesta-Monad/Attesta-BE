@@ -1,0 +1,32 @@
+[
+  {
+    "type": "function",
+    "name": "attest",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      { "name": "recipient", "type": "address" },
+      { "name": "githubUsername", "type": "string" },
+      { "name": "repo", "type": "string" },
+      { "name": "primaryLanguage", "type": "string" },
+      { "name": "contributionType", "type": "string" },
+      { "name": "i18nOnly", "type": "bool" },
+      { "name": "skillTags", "type": "string[]" },
+      { "name": "confidenceScore", "type": "uint8" },
+      { "name": "commitCount", "type": "uint256" },
+      { "name": "evidenceCid", "type": "string" }
+    ],
+    "outputs": [{ "name": "id", "type": "uint256" }]
+  },
+  {
+    "type": "event",
+    "name": "AttestationCreated",
+    "anonymous": false,
+    "inputs": [
+      { "name": "id", "type": "uint256", "indexed": true },
+      { "name": "attester", "type": "address", "indexed": true },
+      { "name": "recipient", "type": "address", "indexed": true },
+      { "name": "repo", "type": "string", "indexed": false },
+      { "name": "isVerified", "type": "bool", "indexed": false }
+    ]
+  }
+]

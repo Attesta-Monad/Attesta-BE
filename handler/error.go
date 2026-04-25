@@ -28,6 +28,12 @@ func handleServiceError(c *fiber.Ctx, err error) error {
 		return errorResponse(c, fiber.StatusUnprocessableEntity, "no valid commits found (all were merge commits or oversized)", "NO_VALID_COMMITS")
 	case strings.Contains(msg, "AI_PARSE_ERROR"):
 		return errorResponse(c, fiber.StatusInternalServerError, "AI returned invalid JSON", "AI_PARSE_ERROR")
+	case strings.Contains(msg, "IPFS_UPLOAD_FAILED"):
+		return errorResponse(c, fiber.StatusBadGateway, "failed to upload evidence to IPFS", "IPFS_UPLOAD_FAILED")
+	case strings.Contains(msg, "CONTRACT_NOT_SET"):
+		return errorResponse(c, fiber.StatusInternalServerError, "CONTRACT_ADDRESS is not set", "CONTRACT_NOT_SET")
+	case strings.Contains(msg, "TX_FAILED"):
+		return errorResponse(c, fiber.StatusBadGateway, "blockchain transaction failed", "TX_FAILED")
 	default:
 		return errorResponse(c, fiber.StatusInternalServerError, msg, "INTERNAL_ERROR")
 	}

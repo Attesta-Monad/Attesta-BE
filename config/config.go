@@ -31,7 +31,7 @@ func Load() {
 	}
 
 	App = Config{
-		Port:            getEnv("PORT", "3001"),
+		Port:            getEnv("PORT", "4010"),
 		GitHubToken:     getEnv("GITHUB_TOKEN", ""),
 		AnthropicAPIKey: getEnv("ANTHROPIC_API_KEY", ""),
 		W3SToken:        getEnv("W3S_TOKEN", ""),

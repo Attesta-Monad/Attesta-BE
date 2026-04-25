@@ -26,6 +26,7 @@ func main() {
 
 	app.Get("/health", handler.Health)
 	app.Post("/analyze", handler.Analyze)
+	app.Post("/attest", handler.Attest)
 	app.Post("/debug/github", handler.DebugGitHub)
 
 	addr := ":" + config.App.Port

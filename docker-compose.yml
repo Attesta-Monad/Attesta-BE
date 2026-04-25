@@ -1,0 +1,27 @@
+services:
+  attesta-be:
+    container_name: attesta-be
+    image: attesta-be:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "4010:4010"
+    env_file:
+      - .env
+    restart: always
+    networks:
+      - attesta-net
+    labels:
+      - "traefik.enable=true"
+      # Router: Menentukan domain
+      - "traefik.http.routers.attesta-be.rule=Host(`api-attesta.gpadaka.com`)"
+      - "traefik.http.routers.attesta-be.entrypoints=websecure"
+      - "traefik.http.routers.attesta-be.tls=true"
+      - "traefik.http.routers.attesta-be.tls.certresolver=cloudflare"
+      # Service: Mengarahkan traffic ke port internal container
+      - "traefik.http.services.attesta-be.loadbalancer.server.port=4010"
+
+networks:
+  attesta-net:
+    external: true

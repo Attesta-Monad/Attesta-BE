@@ -11,6 +11,7 @@
 disimpan permanen di Monad blockchain sebagai attestation record.
 
 Frontend bertugas:
+
 - Menerima input dari user (GitHub username, repo, wallet address)
 - Memanggil API Attesta-BE
 - Menampilkan hasil analisis skill (`/analyze`) dan bukti attestation (`/attest`)
@@ -20,7 +21,7 @@ Frontend bertugas:
 ## Base URL
 
 ```
-Development : http://localhost:3001
+Development : http://localhost:4010
 Production  : (diisi setelah deploy)
 ```
 
@@ -28,13 +29,13 @@ Production  : (diisi setelah deploy)
 
 ## Endpoints yang Tersedia
 
-| Method | Path | Kegunaan |
-|---|---|---|
-| GET | `/health` | Cek server hidup |
-| POST | `/analyze` | Analisis kontribusi GitHub → skill proof (tanpa on-chain) |
-| POST | `/attest` | Full flow: analisis + IPFS + Monad (belum aktif) |
-| GET | `/attestation/:id` | Baca attestation by ID (belum aktif) |
-| GET | `/attestations/:address` | Semua attestation milik wallet (belum aktif) |
+| Method | Path                     | Kegunaan                                                  |
+| ------ | ------------------------ | --------------------------------------------------------- |
+| GET    | `/health`                | Cek server hidup                                          |
+| POST   | `/analyze`               | Analisis kontribusi GitHub → skill proof (tanpa on-chain) |
+| POST   | `/attest`                | Full flow: analisis + IPFS + Monad (belum aktif)          |
+| GET    | `/attestation/:id`       | Baca attestation by ID (belum aktif)                      |
+| GET    | `/attestations/:address` | Semua attestation milik wallet (belum aktif)              |
 
 > Endpoint bertanda "belum aktif" menunggu smart contract deploy di Monad testnet.
 
@@ -45,6 +46,7 @@ Production  : (diisi setelah deploy)
 Cek apakah server backend hidup.
 
 **Response sukses:**
+
 ```json
 {
   "success": true,
@@ -60,6 +62,7 @@ Endpoint utama untuk demo dan preview skill proof.
 **Tidak** menyentuh blockchain atau IPFS — aman untuk dipakai di flow "preview sebelum attest".
 
 **Request:**
+
 ```json
 {
   "owner": "rizkirmdhnnn",
@@ -68,13 +71,14 @@ Endpoint utama untuk demo dan preview skill proof.
 }
 ```
 
-| Field | Tipe | Wajib | Keterangan |
-|---|---|---|---|
-| `owner` | string | ✅ | GitHub username pemilik repo |
-| `repo` | string | ✅ | Nama repo (tanpa owner prefix) |
-| `author` | string | ✅ | GitHub username kontributor yang dianalisis |
+| Field    | Tipe   | Wajib | Keterangan                                  |
+| -------- | ------ | ----- | ------------------------------------------- |
+| `owner`  | string | ✅    | GitHub username pemilik repo                |
+| `repo`   | string | ✅    | Nama repo (tanpa owner prefix)              |
+| `author` | string | ✅    | GitHub username kontributor yang dianalisis |
 
 **Response sukses (200):**
+
 ```json
 {
   "success": true,
@@ -90,7 +94,13 @@ Endpoint utama untuk demo dan preview skill proof.
     "secondary_languages": ["Python", "CSS"],
     "contribution_types": ["frontend", "backend", "devops", "config"],
     "i18n_only": false,
-    "skill_tags": ["Next.js App Router", "React custom hooks", "Telegram Bot API", "session management", "Cloudflare Tunnel"],
+    "skill_tags": [
+      "Next.js App Router",
+      "React custom hooks",
+      "Telegram Bot API",
+      "session management",
+      "Cloudflare Tunnel"
+    ],
     "contribution_quality": "high",
     "confidence_score": 87,
     "red_flags": [],
@@ -111,6 +121,7 @@ Sama seperti `/analyze` tapi menyimpan hasilnya ke IPFS dan Monad blockchain.
 Membutuhkan `recipient_address` (wallet Ethereum penerima attestation).
 
 **Request:**
+
 ```json
 {
   "owner": "rizkirmdhnnn",
@@ -121,6 +132,7 @@ Membutuhkan `recipient_address` (wallet Ethereum penerima attestation).
 ```
 
 **Response sukses (200):**
+
 ```json
 {
   "success": true,
@@ -129,7 +141,7 @@ Membutuhkan `recipient_address` (wallet Ethereum penerima attestation).
   "explorer_url": "https://testnet.monadexplorer.com/tx/0xabc...",
   "evidence_cid": "QmXyz...",
   "evidence_url": "https://QmXyz.ipfs.w3s.link",
-  "skill_proof": { }
+  "skill_proof": {}
 }
 ```
 
@@ -149,18 +161,18 @@ Semua error menggunakan format yang sama:
 
 ### Daftar Error Code
 
-| Code | HTTP Status | Kapan terjadi |
-|---|---|---|
-| `INVALID_INPUT` | 400 | Field wajib kosong atau format salah |
-| `GITHUB_USER_NOT_FOUND` | 404 | Author tidak punya commit di repo itu |
-| `GITHUB_REPO_NOT_FOUND` | 404 | Repo tidak ditemukan atau private |
-| `GITHUB_RATE_LIMIT` | 429 | GitHub rate limit tercapai |
-| `NO_VALID_COMMITS` | 422 | Semua commit adalah merge commit atau terlalu besar |
-| `AI_PARSE_ERROR` | 500 | AI gagal return JSON valid |
-| `IPFS_UPLOAD_FAILED` | 500 | Upload evidence ke IPFS gagal |
-| `CONTRACT_NOT_SET` | 500 | Contract belum di-deploy |
-| `TX_FAILED` | 500 | Transaksi Monad gagal |
-| `INTERNAL_ERROR` | 500 | Error tidak terduga |
+| Code                    | HTTP Status | Kapan terjadi                                       |
+| ----------------------- | ----------- | --------------------------------------------------- |
+| `INVALID_INPUT`         | 400         | Field wajib kosong atau format salah                |
+| `GITHUB_USER_NOT_FOUND` | 404         | Author tidak punya commit di repo itu               |
+| `GITHUB_REPO_NOT_FOUND` | 404         | Repo tidak ditemukan atau private                   |
+| `GITHUB_RATE_LIMIT`     | 429         | GitHub rate limit tercapai                          |
+| `NO_VALID_COMMITS`      | 422         | Semua commit adalah merge commit atau terlalu besar |
+| `AI_PARSE_ERROR`        | 500         | AI gagal return JSON valid                          |
+| `IPFS_UPLOAD_FAILED`    | 500         | Upload evidence ke IPFS gagal                       |
+| `CONTRACT_NOT_SET`      | 500         | Contract belum di-deploy                            |
+| `TX_FAILED`             | 500         | Transaksi Monad gagal                               |
+| `INTERNAL_ERROR`        | 500         | Error tidak terduga                                 |
 
 ---
 
@@ -168,19 +180,21 @@ Semua error menggunakan format yang sama:
 
 ```ts
 interface SkillProof {
-  primary_language: string
-  secondary_languages: string[]
-  contribution_types: Array<"frontend" | "backend" | "testing" | "docs" | "i18n" | "config" | "devops">
-  i18n_only: boolean
-  skill_tags: string[]            // max 5 item
-  contribution_quality: "low" | "medium" | "high"
-  confidence_score: number        // 0–100
-  red_flags: string[]             // array kosong jika tidak ada
-  summary: string
+  primary_language: string;
+  secondary_languages: string[];
+  contribution_types: Array<
+    "frontend" | "backend" | "testing" | "docs" | "i18n" | "config" | "devops"
+  >;
+  i18n_only: boolean;
+  skill_tags: string[]; // max 5 item
+  contribution_quality: "low" | "medium" | "high";
+  confidence_score: number; // 0–100
+  red_flags: string[]; // array kosong jika tidak ada
+  summary: string;
   period: {
-    first_commit: string          // format YYYY-MM-DD
-    last_commit: string           // format YYYY-MM-DD
-  }
+    first_commit: string; // format YYYY-MM-DD
+    last_commit: string; // format YYYY-MM-DD
+  };
 }
 ```
 
@@ -190,11 +204,11 @@ interface SkillProof {
 
 ```ts
 interface AnalyzeMeta {
-  owner: string
-  repo: string
-  author: string
-  commits_fetched: number         // commit yang lolos filter merge
-  commits_analyzed: number        // commit yang benar-benar dianalisis AI
+  owner: string;
+  repo: string;
+  author: string;
+  commits_fetched: number; // commit yang lolos filter merge
+  commits_analyzed: number; // commit yang benar-benar dianalisis AI
 }
 ```
 
