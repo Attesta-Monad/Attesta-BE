@@ -10,6 +10,8 @@ services:
     env_file:
       - .env
     restart: always
+    volumes:
+      - w3_config:/root/.config/w3up-client
     networks:
       - attesta-net
     labels:
@@ -25,3 +27,6 @@ services:
 networks:
   attesta-net:
     external: true
+
+volumes:
+  w3_config:
