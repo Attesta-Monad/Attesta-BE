@@ -20,8 +20,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
 # ==================== RUNTIME STAGE ====================
 FROM alpine:3.21
 
-# ca-certs diperlukan untuk HTTPS calls ke API external (GitHub, Anthropic, Monad RPC, dll.)
-RUN apk add --no-cache ca-certificates
+# ca-certs untuk HTTPS calls; nodejs+npm untuk w3 CLI (IPFS upload via Storacha)
+RUN apk add --no-cache ca-certificates nodejs npm && \
+    npm install -g @web3-storage/w3cli
 
 WORKDIR /app
 
